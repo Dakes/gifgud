@@ -77,6 +77,8 @@ class Gifgud(object):
         # TODO: Error checks and all that stuff
         if pixel:
             new_dimensions = pixel.lower().split("x")
+            new_dimensions[0] = int(new_dimensions[0])
+            new_dimensions[1] = int(new_dimensions[1])
         elif scale:
             scale = int(scale)
             new_dimensions = [img.width * scale, img.height * scale]
