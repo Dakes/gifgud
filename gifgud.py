@@ -9,59 +9,83 @@ import argparse
 
 class Gifgud(object):
 
-    def __init__(self):
-        self.is_path = True
-
     def main(self):
         my_parser = argparse.ArgumentParser(prog='gifgud',
                                             description='Scales up gifs and whole folders of gifs')
 
         # Add the arguments
         my_parser.add_argument('input_path', metavar='input_path', type=str,
-                               help='the path to folder containing gifs  or a gif')
+                               help='the path to a file, or folder containing gifs or other images')
         my_parser.add_argument('output_path', metavar='output_path', type=str,
                                help='the path to folder or file, where will be written to. ')
-        my_parser.add_argument('-p', '--pixel', action='store', help='the output size in pixel (64x64)')
-        my_parser.add_argument('-s', '--scale', action='store', help='scale of the output (2 = doubled size). '
-                                                                          'Can only be used without -p --pixel '
-                                                                          'the size in pixel')
+        my_parser.add_argument('-p', '--pixel', action='store', dest='pixel', help='the output pixel size (64x64)')
+        my_parser.add_argument('-s', '--scale', action='store', dest='scale',
+                               help='scale of the output (2 = doubled size). Can only be used without -p --pixel. '
+                                    'The default is 2x')
 
         args = my_parser.parse_args()
 
         input_path = args.input_path
         output_path = args.output_path
-        # pixel = args.
 
         if not os.path.isdir(input_path):
-            self.is_path = False
             if not os.path.isfile(input_path):
                 print('The path is not a directory or file')
-                sys.exit()
+                sys.exit(1)
 
-        if self.is_path == False:
-            self._scale_up(input_path, output_path)
+        # single file convert
+        if not os.path.isdir(input_path):
+            with Image(filename=input_path) as img:
+                img = self._scale_up(img, args.pixel, args.scale)
+                img.save(filename=output_path)
 
-    def _scale_up(self, file_path, output_path):
-        with Image(filename=file_path) as img:
-            print('width before =', img.width)
-            print('height before =', img.height)
-            # display(img)
+        # recursive convert
+        elif os.path.isdir(input_path):
+            try:
+                os.mkdir(output_path)
+            except FileExistsError:
+                pass
+            for root, d_names, f_names in os.walk(input_path):
+                for file_name in f_names:
+                    file_path = os.path.join(root, file_name)
+                    relative_path = os.path.relpath(file_path, input_path)
+                    output_file = os.path.join(output_path, relative_path)
 
-            img.coalesce()
-            # display(img)
+                    out_folder = os.path.dirname(output_file)
+                    try:
+                        os.mkdir(out_folder)
+                    except FileExistsError:
+                        pass
 
-            img.resize(1024, 1024)
+                    # print("Current Image: ", file_path)
+                    try:
+                        with Image(filename=file_path) as img:
+                            img = self._scale_up(img, args.pixel, args.scale)
+                            img.save(filename=output_file)
+                    except Exception as err:
+                        # print("found non image file: ", file_path)
+                        pass
 
-            print('width after =', img.width)
-            print('height after =', img.height)
-            # display(img)
+    def _scale_up(self, img, pixel, scale):
+        """
+        gets the new image size and scales the image up
+        :param img:
+        :param pixel:
+        :param scale:
+        :return: scaled up image
+        """
+        # TODO: Error checks and all that stuff
+        if pixel:
+            new_dimensions = pixel.lower().split("x")
+        elif scale:
+            scale = int(scale)
+            new_dimensions = [img.width * scale, img.height * scale]
+        else:
+            new_dimensions = [img.width * 2, img.height * 2]
 
-            img.save(filename=output_path)
-
-
-
-
-
+        img.coalesce()
+        img.resize(new_dimensions[0], new_dimensions[1])
+        return img
 
 
 if __name__ == "__main__":
